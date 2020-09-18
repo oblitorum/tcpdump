@@ -702,6 +702,7 @@ show_remote_devices_and_exit(void)
 #define OPTION_TSTAMP_NANO		134
 #define OPTION_FP_TYPE			135
 #define OPTION_COUNT			136
+#define OPTION_TABLE			137
 
 static const struct option longopts[] = {
 #if defined(HAVE_PCAP_CREATE) || defined(_WIN32)
@@ -725,6 +726,7 @@ static const struct option longopts[] = {
 	{ "nano", no_argument, NULL, OPTION_TSTAMP_NANO},
 	{ "time-stamp-precision", required_argument, NULL, OPTION_TSTAMP_PRECISION},
 #endif
+	{ "table", no_argument, NULL, OPTION_TABLE },
 	{ "dont-verify-checksums", no_argument, NULL, 'K' },
 	{ "list-data-link-types", no_argument, NULL, 'L' },
 	{ "no-optimize", no_argument, NULL, 'O' },
@@ -1925,6 +1927,10 @@ main(int argc, char **argv)
 
 		case OPTION_COUNT:
 			count_mode = 1;
+			break;
+
+		case OPTION_TABLE:
+			++ndo->ndo_tbflag;
 			break;
 
 		default:

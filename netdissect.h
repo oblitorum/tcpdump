@@ -207,6 +207,7 @@ struct netdissect_options {
   int ndo_qflag;		/* quick (shorter) output */
   int ndo_Sflag;		/* print raw TCP sequence numbers */
   int ndo_tflag;		/* print packet arrival time */
+  int ndo_tbflag;		/* print packet in table */
   int ndo_uflag;		/* Print undecoded NFS handles */
   int ndo_vflag;		/* verbosity level */
   int ndo_xflag;		/* print packet in hex */
