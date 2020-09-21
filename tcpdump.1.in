@@ -100,13 +100,16 @@ tcpdump \- dump traffic on a network
 .I snaplen
 ]
 [
+.B \-\-table
+]
+[
 .B \-T
 .I type
 ]
+.ti +8
 [
 .B \-\-version
 ]
-.ti +8
 [
 .B \-V
 .I file
@@ -119,20 +122,20 @@ tcpdump \- dump traffic on a network
 .B \-W
 .I filecount
 ]
+.ti +8
 [
 .B \-y
 .I datalinktype
 ]
-.ti +8
 [
 .B \-z
 .I postrotate-command
 ]
+.ti +8
 [
 .B \-Z
 .I user
 ]
-.ti +8
 [
 .BI \-\-time\-stamp\-precision= tstamp_precision
 ]
@@ -763,6 +766,9 @@ Print a delta (microsecond or nanosecond resolution depending on the
 .B \-\-time\-stamp-precision
 option) between current and first line on each dump line.
 The default is microsecond resolution.
+.TP
+.B \-\-table
+Print each packet (minus its link level header) ip header in ascii table
 .TP
 .B \-u
 Print undecoded NFS handles.
