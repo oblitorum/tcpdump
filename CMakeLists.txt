@@ -1071,6 +1071,7 @@ set(NETDISSECT_SOURCE_LIST_C
     print-sunrpc.c
     print-symantec.c
     print-syslog.c
+    print-table.c
     print-tcp.c
     print-telnet.c
     print-tftp.c
@@ -1218,3 +1219,11 @@ if(PERL)
 else()
     message(STATUS "Didn't find perl")
 endif()
+
+#
+# libfort
+# find the libfort library for drawing table
+#
+find_package(fort REQUIRED)
+include_directories(${FORT_INCLUDE_DIRS})
+target_link_libraries(tcpdump ${FORT_LIBRARIES})
