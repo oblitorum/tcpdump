@@ -479,6 +479,12 @@ pretty_print_packet(netdissect_options *ndo, const struct pcap_pkthdr *h,
 			if (h->caplen > hdrlen)
 				ascii_print(ndo, sp + hdrlen, h->caplen - hdrlen);
 		}
+	} else if (ndo->ndo_tbflag) {
+		/*
+		 * Print the raw packet data in table.
+		 */
+		if (h->caplen > hdrlen)
+			table_print(ndo, sp + hdrlen, h->caplen - hdrlen);
 	}
 
 	ND_PRINT("\n");
