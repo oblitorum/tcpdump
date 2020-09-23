@@ -6,7 +6,7 @@
 find_path(FORT_INCLUDE_DIR fort.h)
 
 # Try to find the library
-find_library(FORT_LIBRARY libfort)
+find_library(FORT_LIBRARY fort)
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(fort
