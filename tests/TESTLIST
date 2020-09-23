@@ -390,6 +390,7 @@ geneve-tcp	geneve.pcap		geneve-tcp.out	"geneve && tcp"
 
 # DHCP tests
 dhcp-rfc3004	dhcp-rfc3004.pcap	dhcp-rfc3004-v.out	-v
+dhcp-rfc4388	dhcp-rfc4388.pcap	dhcp-rfc4388.out	-v
 dhcp-rfc5859	dhcp-rfc5859.pcap	dhcp-rfc5859-v.out	-v
 dhcp-mud	dhcp-mud.pcap		dhcp-mud.out	-vv
 
@@ -820,3 +821,6 @@ edns-opts-vv    edns-opts.pcap      edns-opts-vv.out    -vv
 # unsupported link types
 unsupported-link-type-160 unsupported-link-type-160.pcap unsupported-link-type-160.out
 unsupported-link-type-dbus unsupported-link-type-dbus.pcap unsupported-link-type-dbus.out
+
+# LSP Ping
+lsp-ping-timestamp	lsp-ping-timestamp.pcap		lsp-ping-timestamp.out	-vv
