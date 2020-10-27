@@ -29,7 +29,6 @@
 
 #include <string.h>
 
-#define ND_LONGJMP_FROM_TCHECK
 #include "netdissect.h"
 #include "addrtoname.h"
 #include "ethertype.h"
@@ -267,7 +266,11 @@ atmarp_print(netdissect_options *ndo,
 	pro = ATMPRO(ap);
 	op = ATMOP(ap);
 
-	ND_TCHECK_LEN(ATMTPA(ap), ATMTPROTO_LEN(ap));
+	if (!ND_TTEST_LEN(aar_tpa(ap), ATMTPROTO_LEN(ap))) {
+		nd_print_trunc(ndo);
+		ND_DEFAULTPRINT((const u_char *)ap, length);
+		return;
+	}
 
         if (!ndo->ndo_eflag) {
             ND_PRINT("ARP, ");
@@ -344,6 +347,10 @@ atmarp_print(netdissect_options *ndo,
 
  out:
         ND_PRINT(", length %u", length);
+        return;
+
+trunc:
+	nd_print_trunc(ndo);
 }
 
 void
@@ -379,7 +386,11 @@ arp_print(netdissect_options *ndo,
             break;
 	}
 
-	ND_TCHECK_LEN(TPA(ap), PROTO_LEN(ap));
+	if (!ND_TTEST_LEN(TPA(ap), PROTO_LEN(ap))) {
+		nd_print_trunc(ndo);
+		ND_DEFAULTPRINT((const u_char *)ap, length);
+		return;
+	}
 
         if (!ndo->ndo_eflag) {
             ND_PRINT("ARP, ");
@@ -456,4 +467,8 @@ arp_print(netdissect_options *ndo,
 
  out:
         ND_PRINT(", length %u", length);
+
+	return;
+trunc:
+	nd_print_trunc(ndo);
 }
