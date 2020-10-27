@@ -31,7 +31,6 @@
 
 #include "netdissect-stdinc.h"
 
-#define ND_LONGJMP_FROM_TCHECK
 #include "netdissect.h"
 #include "extract.h"
 
@@ -66,59 +65,47 @@ vxlan_gpe_print(netdissect_options *ndo, const u_char *bp, u_int len)
     uint32_t vni;
 
     ndo->ndo_protocol = "vxlan_gpe";
-    ND_PRINT("VXLAN-GPE, ");
-    if (len < VXLAN_GPE_HDR_LEN) {
-        ND_PRINT(" (len %u < %u)", len, VXLAN_GPE_HDR_LEN);
-        goto invalid;
-    }
+    if (len < VXLAN_GPE_HDR_LEN)
+        goto trunc;
+
+    ND_TCHECK_LEN(bp, VXLAN_GPE_HDR_LEN);
 
     flags = GET_U_1(bp);
-    bp += 1;
-    len -= 1;
-    ND_PRINT("flags [%s], ",
-              bittok2str_nosep(vxlan_gpe_flags, "none", flags));
-
-    /* Reserved */
-    bp += 2;
-    len -= 2;
+    bp += 3;
 
     next_protocol = GET_U_1(bp);
     bp += 1;
-    len -= 1;
 
     vni = GET_BE_U_3(bp);
-    bp += 3;
-    len -= 3;
+    bp += 4;
 
-    /* Reserved */
-    ND_TCHECK_1(bp);
-    bp += 1;
-    len -= 1;
-
+    ND_PRINT("VXLAN-GPE, ");
+    ND_PRINT("flags [%s], ",
+              bittok2str_nosep(vxlan_gpe_flags, "none", flags));
     ND_PRINT("vni %u", vni);
     ND_PRINT(ndo->ndo_vflag ? "\n    " : ": ");
 
     switch (next_protocol) {
     case 0x1:
-        ip_print(ndo, bp, len);
+        ip_print(ndo, bp, len - VXLAN_GPE_HDR_LEN);
         break;
     case 0x2:
-        ip6_print(ndo, bp, len);
+        ip6_print(ndo, bp, len - VXLAN_GPE_HDR_LEN);
         break;
     case 0x3:
-        ether_print(ndo, bp, len, ND_BYTES_AVAILABLE_AFTER(bp), NULL, NULL);
+        ether_print(ndo, bp, len - VXLAN_GPE_HDR_LEN, ND_BYTES_AVAILABLE_AFTER(bp), NULL, NULL);
         break;
     case 0x4:
-        nsh_print(ndo, bp, len);
+        nsh_print(ndo, bp, len - VXLAN_GPE_HDR_LEN);
         break;
     default:
         ND_PRINT("ERROR: unknown-next-protocol");
-        goto invalid;
+        return;
     }
 
 	return;
 
-invalid:
-    nd_print_invalid(ndo);
+trunc:
+	nd_print_trunc(ndo);
 }
 
