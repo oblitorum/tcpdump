@@ -37,7 +37,6 @@
 
 #include "netdissect-stdinc.h"
 
-#define ND_LONGJMP_FROM_TCHECK
 #include "netdissect.h"
 #include "extract.h"
 #include "addrtoname.h"
@@ -199,6 +198,9 @@ aoev1_issue_print(netdissect_options *ndo,
 invalid:
 	nd_print_invalid(ndo);
 	ND_TCHECK_LEN(cp, len);
+	return;
+trunc:
+	nd_trunc(ndo);
 }
 
 static void
@@ -242,6 +244,9 @@ aoev1_query_print(netdissect_options *ndo,
 invalid:
 	nd_print_invalid(ndo);
 	ND_TCHECK_LEN(cp, len);
+	return;
+trunc:
+	nd_trunc(ndo);
 }
 
 static void
@@ -292,6 +297,9 @@ aoev1_mac_print(netdissect_options *ndo,
 invalid:
 	nd_print_invalid(ndo);
 	ND_TCHECK_LEN(cp, len);
+	return;
+trunc:
+	nd_trunc(ndo);
 }
 
 static void
@@ -325,6 +333,9 @@ aoev1_reserve_print(netdissect_options *ndo,
 invalid:
 	nd_print_invalid(ndo);
 	ND_TCHECK_LEN(cp, len);
+	return;
+trunc:
+	nd_trunc(ndo);
 }
 
 /* cp points to the Ver/Flags octet */
@@ -381,6 +392,9 @@ aoev1_print(netdissect_options *ndo,
 invalid:
 	nd_print_invalid(ndo);
 	ND_TCHECK_LEN(cp, len);
+	return;
+trunc:
+	nd_trunc(ndo);
 }
 
 void
@@ -409,5 +423,8 @@ aoe_print(netdissect_options *ndo,
 invalid:
 	nd_print_invalid(ndo);
 	ND_TCHECK_LEN(cp, len);
+	return;
+trunc:
+	nd_trunc(ndo);
 }
 
