@@ -27,7 +27,6 @@
 
 #include "netdissect-stdinc.h"
 
-#define ND_LONGJMP_FROM_TCHECK
 #include "netdissect.h"
 #include "extract.h"
 
@@ -108,10 +107,10 @@ pktap_if_print(netdissect_options *ndo,
 	struct pcap_pkthdr nhdr;
 
 	ndo->ndo_protocol = "pktap";
-	if (length < sizeof(pktap_header_t)) {
-		ND_PRINT(" (packet too short, %u < %u)",
-		         length, (unsigned)sizeof(pktap_header_t));
-		goto invalid;
+	if (caplen < sizeof(pktap_header_t)) {
+		nd_print_trunc(ndo);
+		ndo->ndo_ll_hdr_len += caplen;
+		return;
 	}
 	hdr = (const pktap_header_t *)p;
 	dlt = GET_LE_U_4(hdr->pkt_dlt);
@@ -124,16 +123,15 @@ pktap_if_print(netdissect_options *ndo,
 		 * is the length supplied so that the header can
 		 * be expanded in the future)?
 		 */
-		ND_PRINT(" (pkt_len too small, %u < %u)",
-		         hdrlen, (unsigned)sizeof(pktap_header_t));
-		goto invalid;
+		nd_print_trunc(ndo);
+		ndo->ndo_ll_hdr_len += caplen;
+		return;
 	}
-	if (hdrlen > length) {
-		ND_PRINT(" (pkt_len too big, %u > %u)",
-		         hdrlen, length);
-		goto invalid;
+	if (caplen < hdrlen) {
+		nd_print_trunc(ndo);
+		ndo->ndo_ll_hdr_len += caplen;
+		return;
 	}
-	ND_TCHECK_LEN(p, hdrlen);
 
 	if (ndo->ndo_eflag)
 		pktap_header_print(ndo, p, length);
@@ -169,9 +167,5 @@ pktap_if_print(netdissect_options *ndo,
 	}
 
 	ndo->ndo_ll_hdr_len += hdrlen;
-	return;
-
-invalid:
-	nd_print_invalid(ndo);
 }
 #endif /* DLT_PKTAP */
