@@ -151,7 +151,6 @@ The Regents of the University of California.  All rights reserved.\n";
 #include <sys/sysctl.h>
 #endif /* __FreeBSD__ */
 
-#include "netdissect-stdinc.h"
 #include "netdissect.h"
 #include "interface.h"
 #include "addrtoname.h"
@@ -1068,21 +1067,14 @@ read_infile(char *fname)
 	int i, fd;
 	ssize_t cc;
 	char *cp;
-	our_statb buf;
+	struct stat buf;
 
 	fd = open(fname, O_RDONLY|O_BINARY);
 	if (fd < 0)
 		error("can't open %s: %s", fname, pcap_strerror(errno));
 
-	if (our_fstat(fd, &buf) < 0)
+	if (fstat(fd, &buf) < 0)
 		error("can't stat %s: %s", fname, pcap_strerror(errno));
-
-	/*
-	 * Reject files whose size doesn't fit into an int; a filter
-	 * *that* large will probably be too big.
-	 */
-	if (buf.st_size > INT_MAX)
-		error("%s is too large", fname);
 
 	cp = malloc((u_int)buf.st_size + 1);
 	if (cp == NULL)
@@ -1092,8 +1084,7 @@ read_infile(char *fname)
 	if (cc < 0)
 		error("read %s: %s", fname, pcap_strerror(errno));
 	if (cc != buf.st_size)
-		error("short read %s (%d != %d)", fname, (int) cc,
-		    (int)buf.st_size);
+		error("short read %s (%zd != %d)", fname, cc, (int)buf.st_size);
 
 	close(fd);
 	/* replace "# comment" with spaces */
