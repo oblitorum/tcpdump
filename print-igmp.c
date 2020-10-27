@@ -114,6 +114,7 @@ print_mtrace(netdissect_options *ndo,
 {
     const struct tr_query *tr = (const struct tr_query *)(bp + 8);
 
+    ND_TCHECK_SIZE(tr);
     if (len < 8 + sizeof (struct tr_query)) {
 	ND_PRINT(" [invalid len %u]", len);
 	return;
@@ -125,6 +126,9 @@ print_mtrace(netdissect_options *ndo,
         GET_IPADDR_STRING(tr->tr_raddr));
     if (IN_CLASSD(GET_BE_U_4(tr->tr_raddr)))
         ND_PRINT(" with-ttl %u", GET_U_1(tr->tr_rttl));
+    return;
+trunc:
+    nd_print_trunc(ndo);
 }
 
 static void
@@ -149,6 +153,7 @@ print_igmpv3_report(netdissect_options *ndo,
 		ND_PRINT(" [invalid number of groups]");
 		return;
 	    }
+	    ND_TCHECK_4(bp + (group + 4));
             ND_PRINT(" [gaddr %s", GET_IPADDR_STRING(bp + group + 4));
 	    ND_PRINT(" %s", tok2str(igmpv3report2str, " [v3-report-#%u]",
 								GET_U_1(bp + group)));
@@ -164,6 +169,7 @@ print_igmpv3_report(netdissect_options *ndo,
 		/* Print the sources */
                 ND_PRINT(" {");
                 for (j=0; j<nsrcs; j++) {
+		    ND_TCHECK_4(bp + (group + 8 + (j << 2)));
 		    ND_PRINT(" %s", GET_IPADDR_STRING(bp + group + 8 + (j << 2)));
 		}
                 ND_PRINT(" }");
@@ -173,6 +179,9 @@ print_igmpv3_report(netdissect_options *ndo,
 	    ND_PRINT("]");
         }
     }
+    return;
+trunc:
+    nd_print_trunc(ndo);
 }
 
 static void
@@ -215,6 +224,7 @@ print_igmpv3_query(netdissect_options *ndo,
 	else if (ndo->ndo_vflag > 1) {
 	    ND_PRINT(" {");
 	    for (i=0; i<nsrcs; i++) {
+		ND_TCHECK_4(bp + (12 + (i << 2)));
 		ND_PRINT(" %s", GET_IPADDR_STRING(bp + 12 + (i << 2)));
 	    }
 	    ND_PRINT(" }");
@@ -222,6 +232,9 @@ print_igmpv3_query(netdissect_options *ndo,
 	    ND_PRINT(", %u source(s)", nsrcs);
     }
     ND_PRINT("]");
+    return;
+trunc:
+    nd_print_trunc(ndo);
 }
 
 void
