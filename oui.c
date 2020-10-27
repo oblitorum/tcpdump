@@ -48,9 +48,6 @@ const struct tok oui_values[] = {
     { OUI_ONLAB, "Open Networking Lab" },
     { OUI_FREESCALE, "Freescale" },
     { OUI_NETRONOME, "Netronome" },
-    { OUI_BROADCOM, "Broadcom" },
-    { OUI_PMC_SIERRA, "PMC-Sierra" },
-    { OUI_ERICSSON, "Ericsson" },
     { 0, NULL }
 };
 
