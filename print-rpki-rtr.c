@@ -27,7 +27,6 @@
 
 #include <string.h>
 
-#define ND_LONGJMP_FROM_TCHECK
 #include "netdissect.h"
 #include "extract.h"
 #include "addrtoname.h"
@@ -224,6 +223,7 @@ rpki_rtr_pdu_print(netdissect_options *ndo, const u_char *tptr, const u_int len,
     case RPKI_RTR_END_OF_DATA_PDU:
 	if (pdu_len != sizeof(rpki_rtr_pdu) + 4)
 	    goto invalid;
+	ND_TCHECK_LEN(tptr, pdu_len);
         msg = (const u_char *)(pdu_header + 1);
 	ND_PRINT("%sSession ID: 0x%04x, Serial: %u",
 	       indent_string(indent+2),
@@ -258,8 +258,9 @@ rpki_rtr_pdu_print(netdissect_options *ndo, const u_char *tptr, const u_int len,
 	{
 	    const rpki_rtr_pdu_ipv4_prefix *pdu;
 
-	    if (pdu_len != sizeof(rpki_rtr_pdu_ipv4_prefix))
+	    if (pdu_len != sizeof(rpki_rtr_pdu) + 12)
 		goto invalid;
+	    ND_TCHECK_LEN(tptr, pdu_len);
 	    pdu = (const rpki_rtr_pdu_ipv4_prefix *)tptr;
 	    ND_PRINT("%sIPv4 Prefix %s/%u-%u, origin-as %u, flags 0x%02x",
 		   indent_string(indent+2),
@@ -273,8 +274,9 @@ rpki_rtr_pdu_print(netdissect_options *ndo, const u_char *tptr, const u_int len,
 	{
 	    const rpki_rtr_pdu_ipv6_prefix *pdu;
 
-	    if (pdu_len != sizeof(rpki_rtr_pdu_ipv6_prefix))
+	    if (pdu_len != sizeof(rpki_rtr_pdu) + 24)
 		goto invalid;
+	    ND_TCHECK_LEN(tptr, pdu_len);
 	    pdu = (const rpki_rtr_pdu_ipv6_prefix *)tptr;
 	    ND_PRINT("%sIPv6 Prefix %s/%u-%u, origin-as %u, flags 0x%02x",
 		   indent_string(indent+2),
@@ -351,7 +353,8 @@ rpki_rtr_pdu_print(netdissect_options *ndo, const u_char *tptr, const u_int len,
 		    goto invalid;
 		/* nd_printn() makes the bounds check */
 		ND_PRINT("%sError text: ", indent_string(indent+2));
-		nd_printn(ndo, tptr + tlen, text_length, NULL);
+		if (nd_printn(ndo, tptr + tlen, text_length, ndo->ndo_snapend))
+			goto trunc;
 	    }
 	}
 	break;
@@ -374,6 +377,9 @@ rpki_rtr_pdu_print(netdissect_options *ndo, const u_char *tptr, const u_int len,
 invalid:
     nd_print_invalid(ndo);
     ND_TCHECK_LEN(tptr, len);
+    return len;
+trunc:
+    nd_print_trunc(ndo);
     return len;
 }
 
