@@ -695,26 +695,26 @@ of13_port_print(netdissect_options *ndo,
 /* [OF13] Section 7.3.1 */
 static void
 of13_features_reply_print(netdissect_options *ndo,
-                          const u_char *cp)
+                          const u_char *cp, u_int len)
 {
 	/* datapath_id */
 	ND_PRINT("\n\t dpid 0x%016" PRIx64, GET_BE_U_8(cp));
-	cp += 8;
+	OF_FWD(8);
 	/* n_buffers */
 	ND_PRINT(", n_buffers %u", GET_BE_U_4(cp));
-	cp += 4;
+	OF_FWD(4);
 	/* n_tables */
 	ND_PRINT(", n_tables %u", GET_U_1(cp));
-	cp += 1;
+	OF_FWD(1);
 	/* auxiliary_id */
 	ND_PRINT(", auxiliary_id %u", GET_U_1(cp));
-	cp += 1;
+	OF_FWD(1);
 	/* pad */
-	cp += 2;
+	OF_FWD(2);
 	/* capabilities */
 	ND_PRINT("\n\t capabilities 0x%08x", GET_BE_U_4(cp));
 	of_bitmap_print(ndo, ofp_capabilities_bm, GET_BE_U_4(cp), OFPCAP_U);
-	cp += 4;
+	OF_FWD(4);
 	/* reserved */
 	ND_TCHECK_4(cp);
 }
@@ -722,12 +722,12 @@ of13_features_reply_print(netdissect_options *ndo,
 /* [OF13] Section 7.3.2 */
 static void
 of13_switch_config_msg_print(netdissect_options *ndo,
-                             const u_char *cp)
+                         const u_char *cp, u_int len)
 {
 	/* flags */
 	ND_PRINT("\n\t flags %s",
 	         tok2str(ofp_config_str, "invalid (0x%04x)", GET_BE_U_2(cp)));
-	cp += 2;
+	OF_FWD(2);
 	/* miss_send_len */
 	ND_PRINT(", miss_send_len %s",
 	         tok2str(ofpcml_str, "%u", GET_BE_U_2(cp)));
@@ -751,30 +751,30 @@ of13_role_msg_print(netdissect_options *ndo,
 /* [OF13] Section 7.3.4.3 */
 static void
 of13_port_mod_print(netdissect_options *ndo,
-                    const u_char *cp)
+                    const u_char *cp, u_int len)
 {
 	/* port_no */
 	ND_PRINT("\n\t port_no %s", tok2str(ofpp_str, "%u", GET_BE_U_4(cp)));
-	cp += 4;
+	OF_FWD(4);
 	/* pad */
-	cp += 4;
+	OF_FWD(4);
 	/* hw_addr */
 	ND_PRINT(", hw_addr %s", GET_ETHERADDR_STRING(cp));
-	cp += MAC_ADDR_LEN;
+	OF_FWD(MAC_ADDR_LEN);
 	/* pad2 */
-	cp += 2;
+	OF_FWD(2);
 	/* config */
 	ND_PRINT("\n\t  config 0x%08x", GET_BE_U_4(cp));
 	of_bitmap_print(ndo, ofppc_bm, GET_BE_U_4(cp), OFPPC_U);
-	cp += 4;
+	OF_FWD(4);
 	/* mask */
 	ND_PRINT("\n\t  mask 0x%08x", GET_BE_U_4(cp));
 	of_bitmap_print(ndo, ofppc_bm, GET_BE_U_4(cp), OFPPC_U);
-	cp += 4;
+	OF_FWD(4);
 	/* advertise */
 	ND_PRINT("\n\t  advertise 0x%08x", GET_BE_U_4(cp));
 	of_bitmap_print(ndo, ofppf_bm, GET_BE_U_4(cp), OFPPF_U);
-	cp += 4;
+	OF_FWD(4);
 	/* pad3 */
 	/* Always the last field, check bounds. */
 	ND_TCHECK_4(cp);
@@ -915,7 +915,7 @@ of13_message_print(netdissect_options *ndo,
 			goto invalid;
 		if (ndo->ndo_vflag < 1)
 			break;
-		of13_features_reply_print(ndo, cp);
+		of13_features_reply_print(ndo, cp, len);
 		return;
 	case OFPT_QUEUE_GET_CONFIG_REQUEST: /* [OF13] Section A.3.6 */
 		if (len != OF_QUEUE_GET_CONFIG_REQUEST_FIXLEN - OF_HEADER_FIXLEN)
@@ -936,14 +936,14 @@ of13_message_print(netdissect_options *ndo,
 			goto invalid;
 		if (ndo->ndo_vflag < 1)
 			break;
-		of13_switch_config_msg_print(ndo, cp);
+		of13_switch_config_msg_print(ndo, cp, len);
 		return;
 	case OFPT_PORT_MOD: /* [OF13] Section 7.3.4.3 */
 		if (len != OF_PORT_MOD_FIXLEN - OF_HEADER_FIXLEN)
 			goto invalid;
 		if (ndo->ndo_vflag < 1)
 			break;
-		of13_port_mod_print(ndo, cp);
+		of13_port_mod_print(ndo, cp, len);
 		return;
 	case OFPT_ROLE_REQUEST: /* [OF13] Section 7.3.9 */
 	case OFPT_ROLE_REPLY: /* ibid */
