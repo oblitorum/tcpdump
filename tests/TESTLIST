@@ -229,7 +229,8 @@ msnlb2		msnlb2.pcapng		msnlb2.out
 mptcp-v0	mptcp-v0.pcap		mptcp-v0.out
 mptcp-v1	mptcp-v1.pcap		mptcp-v1.out
 mptcp-fclose	mptcp-fclose.pcap	mptcp-fclose.out
-mptcp-aa-v1     mptcp-aa-v1.pcap        mptcp-aa-v1.out
+mptcp-aa-v1	mptcp-aa-v1.pcap	mptcp-aa-v1.out
+mptcp-aa-echo	mptcp-aa-echo.pcap	mptcp-aa-echo.out
 
 # TFO tests
 tfo		tfo-5c1fa7f9ae91.pcap	tfo.out
@@ -247,6 +248,9 @@ of10_pf5240-vv	of10_pf5240.pcap	of10_pf5240-vv.out	-vv
 of10_7050q-v	of10_7050q.pcapng	of10_7050q-v.out	-v
 of10_7050sx_bsn-vv	of10_7050sx_bsn.pcap		of10_7050sx_bsn-vv.out	-vv
 of10_7050sx_bsn-oobr of10_7050sx_bsn-oobr.pcap of10_7050sx_bsn-oobr.out -v
+of13_ericsson		of13_ericsson.pcapng	of13_ericsson.out
+of13_ericsson-v		of13_ericsson.pcapng	of13_ericsson-v.out	-v
+of13_ericsson-vv	of13_ericsson.pcapng	of13_ericsson-vv.out	-vv
 
 # GeoNetworking and CALM FAST tests
 geonet-calm-fast	geonet_and_calm_fast.pcap	geonet_and_calm_fast.out	-vv

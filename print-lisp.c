@@ -100,7 +100,6 @@
 
 #include "netdissect-stdinc.h"
 #include "netdissect.h"
-#include <string.h>
 #include <stdlib.h>
 
 #include "ip.h"
@@ -390,7 +389,6 @@ trunc:
 	return;
 invalid:
 	nd_print_invalid(ndo);
-	return;
 }
 
 static uint8_t
@@ -430,8 +428,6 @@ static void lisp_hdr_flag(netdissect_options *ndo, const lisp_map_register_hdr *
 		ND_PRINT(" flags [%s],", bittok2str(map_notify_hdr_flag,
 			 "none", GET_BE_U_4(lisp_hdr)));
 	}
-
-	return;
 }
 
 static void action_flag(netdissect_options *ndo, uint8_t act_auth_inc_res)
