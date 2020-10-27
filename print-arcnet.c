@@ -192,8 +192,9 @@ arcnet_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h, const u_ch
 
 	ndo->ndo_protocol = "arcnet";
 	if (caplen < ARC_HDRLEN) {
+		nd_print_trunc(ndo);
 		ndo->ndo_ll_hdr_len += caplen;
-		nd_trunc_longjmp(ndo);
+		return;
 	}
 
 	ap = (const struct arc_header *)p;
@@ -215,8 +216,9 @@ arcnet_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h, const u_ch
 		if (caplen < ARC_HDRNEWLEN) {
 			arcnet_print(ndo, p, length, 0, 0, 0);
 			ND_PRINT(" phds");
+			nd_print_trunc(ndo);
 			ndo->ndo_ll_hdr_len += caplen;
-			nd_trunc_longjmp(ndo);
+			return;
 		}
 
 		flag = GET_U_1(ap->arc_flag);
@@ -224,8 +226,9 @@ arcnet_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h, const u_ch
 			if (caplen < ARC_HDRNEWLEN_EXC) {
 				arcnet_print(ndo, p, length, 0, 0, 0);
 				ND_PRINT(" phds extended");
+				nd_print_trunc(ndo);
 				ndo->ndo_ll_hdr_len += caplen;
-				nd_trunc_longjmp(ndo);
+				return;
 			}
 			flag = GET_U_1(ap->arc_flag2);
 			seqid = GET_BE_U_2(ap->arc_seqid2);
@@ -283,8 +286,9 @@ arcnet_linux_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h, cons
 
 	ndo->ndo_protocol = "arcnet_linux";
 	if (caplen < ARC_LINUX_HDRLEN) {
+		nd_print_trunc(ndo);
 		ndo->ndo_ll_hdr_len += caplen;
-		nd_trunc_longjmp(ndo);
+		return;
 	}
 
 	ap = (const struct arc_linux_header *)p;
@@ -294,8 +298,9 @@ arcnet_linux_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h, cons
 	default:
 		archdrlen = ARC_LINUX_HDRNEWLEN;
 		if (caplen < ARC_LINUX_HDRNEWLEN) {
+			nd_print_trunc(ndo);
 			ndo->ndo_ll_hdr_len += caplen;
-			nd_trunc_longjmp(ndo);
+			return;
 		}
 		break;
 	case ARCTYPE_IP_OLD:
