@@ -31,7 +31,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define ND_LONGJMP_FROM_TCHECK
 #include "netdissect.h"
 #include "extract.h"
 #include "addrtoname.h"
@@ -158,6 +157,18 @@ union routehdr
 /*
  * Define control message formats.
  */
+struct initmsgIII			/* phase III initialization message */
+  {
+    byte	inIII_flags;		/* route flags */
+    word	inIII_src;		/* source node address */
+    byte	inIII_info;		/* routing layer information */
+    word	inIII_blksize;		/* maximum data link block size */
+    byte	inIII_vers;		/* version number */
+    byte	inIII_eco;		/* ECO number */
+    byte	inIII_ueco;		/* user ECO number */
+    byte	inIII_rsvd;		/* reserved image field */
+  };
+
 struct initmsg				/* initialization message */
   {
     byte	in_flags;		/* route flags */
@@ -458,10 +469,10 @@ struct dcmsg				/* disconnect confirm message */
 /* Forwards */
 static int print_decnet_ctlmsg(netdissect_options *, const union routehdr *, u_int, u_int);
 static void print_t_info(netdissect_options *, u_int);
-static void print_l1_routes(netdissect_options *, const u_char *, u_int);
-static void print_l2_routes(netdissect_options *, const u_char *, u_int);
+static int print_l1_routes(netdissect_options *, const u_char *, u_int);
+static int print_l2_routes(netdissect_options *, const u_char *, u_int);
 static void print_i_info(netdissect_options *, u_int);
-static void print_elist(const u_char *, u_int);
+static int print_elist(const u_char *, u_int);
 static int print_nsp(netdissect_options *, const u_char *, u_int);
 static void print_reason(netdissect_options *, u_int);
 
@@ -479,18 +490,18 @@ decnet_print(netdissect_options *ndo,
 
 	ndo->ndo_protocol = "decnet";
 	if (length < sizeof(struct shorthdr)) {
-		ND_PRINT(" (length %u < %u)", length, (unsigned)sizeof(struct shorthdr));
-		goto invalid;
+		nd_print_trunc(ndo);
+		return;
 	}
 
 	pktlen = GET_LE_U_2(ap);
 	if (pktlen < sizeof(struct shorthdr)) {
-		ND_PRINT(" (pktlen %u < %u)", pktlen, (unsigned)sizeof(struct shorthdr));
-		goto invalid;
+		nd_print_trunc(ndo);
+		return;
 	}
 	if (pktlen > length) {
-		ND_PRINT(" (pktlen %u > %u)", pktlen, length);
-		goto invalid;
+		nd_print_trunc(ndo);
+		return;
 	}
 	length = pktlen;
 
@@ -503,8 +514,8 @@ decnet_print(netdissect_options *ndo,
 	    if (ndo->ndo_vflag)
 		ND_PRINT("[pad:%u] ", padlen);
 	    if (length < padlen + 2) {
-		ND_PRINT(" (length %u < %u)", length, padlen + 2);
-		goto invalid;
+		nd_print_trunc(ndo);
+		return;
 	    }
 	    ND_TCHECK_LEN(ap + sizeof(short), padlen);
 	    ap += padlen;
@@ -523,15 +534,15 @@ decnet_print(netdissect_options *ndo,
 	/* is it a control message? */
 	if (mflags & RMF_CTLMSG) {
 		if (!print_decnet_ctlmsg(ndo, rhp, length, caplen))
-			goto invalid;
+			goto trunc;
 		return;
 	}
 
 	switch (mflags & RMF_MASK) {
 	case RMF_LONG:
 	    if (length < sizeof(struct longhdr)) {
-		ND_PRINT(" (length %u < %u)", length, (unsigned)sizeof(struct longhdr));
-		goto invalid;
+		nd_print_trunc(ndo);
+		return;
 	    }
 	    ND_TCHECK_SIZE(&rhp->rh_long);
 	    dst =
@@ -543,6 +554,7 @@ decnet_print(netdissect_options *ndo,
 	    nsplen = length - sizeof(struct longhdr);
 	    break;
 	case RMF_SHORT:
+	    ND_TCHECK_SIZE(&rhp->rh_short);
 	    dst = GET_LE_U_2(rhp->rh_short.sh_dst);
 	    src = GET_LE_U_2(rhp->rh_short.sh_src);
 	    hops = (GET_U_1(rhp->rh_short.sh_visits) & VIS_MASK)+1;
@@ -568,11 +580,11 @@ decnet_print(netdissect_options *ndo,
 	}
 
 	if (!print_nsp(ndo, nspp, nsplen))
-		goto invalid;
+		goto trunc;
 	return;
 
-invalid:
-	nd_print_invalid(ndo);
+trunc:
+	nd_print_trunc(ndo);
 }
 
 static int
@@ -587,12 +599,13 @@ print_decnet_ctlmsg(netdissect_options *ndo,
 	u_int info, blksize, eco, ueco, hello, other, vers;
 	u_int priority;
 	const u_char *rhpx = (const u_char *)rhp;
+	int ret;
 
 	switch (mflags & RMF_CTLMASK) {
 	case RMF_INIT:
 	    ND_PRINT("init ");
 	    if (length < sizeof(struct initmsg))
-		goto invalid;
+		goto trunc;
 	    ND_TCHECK_SIZE(&cmp->cm_init);
 	    src = GET_LE_U_2(cmp->cm_init.in_src);
 	    info = GET_U_1(cmp->cm_init.in_info);
@@ -605,47 +618,52 @@ print_decnet_ctlmsg(netdissect_options *ndo,
 	    ND_PRINT("src %sblksize %u vers %u eco %u ueco %u hello %u",
 			dnaddr_string(ndo, src), blksize, vers, eco, ueco,
 			hello);
+	    ret = 1;
 	    break;
 	case RMF_VER:
 	    ND_PRINT("verification ");
 	    if (length < sizeof(struct verifmsg))
-		goto invalid;
+		goto trunc;
+	    ND_TCHECK_SIZE(&cmp->cm_ver);
 	    src = GET_LE_U_2(cmp->cm_ver.ve_src);
 	    other = GET_U_1(cmp->cm_ver.ve_fcnval);
 	    ND_PRINT("src %s fcnval %o", dnaddr_string(ndo, src), other);
+	    ret = 1;
 	    break;
 	case RMF_TEST:
 	    ND_PRINT("test ");
 	    if (length < sizeof(struct testmsg))
-		goto invalid;
+		goto trunc;
+	    ND_TCHECK_SIZE(&cmp->cm_test);
 	    src = GET_LE_U_2(cmp->cm_test.te_src);
 	    other = GET_U_1(cmp->cm_test.te_data);
 	    ND_PRINT("src %s data %o", dnaddr_string(ndo, src), other);
+	    ret = 1;
 	    break;
 	case RMF_L1ROUT:
 	    ND_PRINT("lev-1-routing ");
 	    if (length < sizeof(struct l1rout))
-		goto invalid;
+		goto trunc;
 	    ND_TCHECK_SIZE(&cmp->cm_l1rou);
 	    src = GET_LE_U_2(cmp->cm_l1rou.r1_src);
 	    ND_PRINT("src %s ", dnaddr_string(ndo, src));
-	    print_l1_routes(ndo, &(rhpx[sizeof(struct l1rout)]),
+	    ret = print_l1_routes(ndo, &(rhpx[sizeof(struct l1rout)]),
 				length - sizeof(struct l1rout));
 	    break;
 	case RMF_L2ROUT:
 	    ND_PRINT("lev-2-routing ");
 	    if (length < sizeof(struct l2rout))
-		goto invalid;
+		goto trunc;
 	    ND_TCHECK_SIZE(&cmp->cm_l2rout);
 	    src = GET_LE_U_2(cmp->cm_l2rout.r2_src);
 	    ND_PRINT("src %s ", dnaddr_string(ndo, src));
-	    print_l2_routes(ndo, &(rhpx[sizeof(struct l2rout)]),
+	    ret = print_l2_routes(ndo, &(rhpx[sizeof(struct l2rout)]),
 				length - sizeof(struct l2rout));
 	    break;
 	case RMF_RHELLO:
 	    ND_PRINT("router-hello ");
 	    if (length < sizeof(struct rhellomsg))
-		goto invalid;
+		goto trunc;
 	    ND_TCHECK_SIZE(&cmp->cm_rhello);
 	    vers = GET_U_1(cmp->cm_rhello.rh_vers);
 	    eco = GET_U_1(cmp->cm_rhello.rh_eco);
@@ -660,13 +678,14 @@ print_decnet_ctlmsg(netdissect_options *ndo,
 	    ND_PRINT("vers %u eco %u ueco %u src %s blksize %u pri %u hello %u",
 			vers, eco, ueco, dnaddr_string(ndo, src),
 			blksize, priority, hello);
-	    print_elist(&(rhpx[sizeof(struct rhellomsg)]),
+	    ret = print_elist(&(rhpx[sizeof(struct rhellomsg)]),
 				length - sizeof(struct rhellomsg));
 	    break;
 	case RMF_EHELLO:
 	    ND_PRINT("endnode-hello ");
 	    if (length < sizeof(struct ehellomsg))
-		goto invalid;
+		goto trunc;
+	    ND_TCHECK_SIZE(&cmp->cm_ehello);
 	    vers = GET_U_1(cmp->cm_ehello.eh_vers);
 	    eco = GET_U_1(cmp->cm_ehello.eh_eco);
 	    ueco = GET_U_1(cmp->cm_ehello.eh_ueco);
@@ -683,16 +702,18 @@ print_decnet_ctlmsg(netdissect_options *ndo,
 	    ND_PRINT("vers %u eco %u ueco %u src %s blksize %u rtr %s hello %u data %o",
 			vers, eco, ueco, dnaddr_string(ndo, src),
 			blksize, dnaddr_string(ndo, dst), hello, other);
+	    ret = 1;
 	    break;
 
 	default:
 	    ND_PRINT("unknown control message");
 	    ND_DEFAULTPRINT((const u_char *)rhp, ND_MIN(length, caplen));
+	    ret = 1;
 	    break;
 	}
-	return (1);
+	return (ret);
 
-invalid:
+trunc:
 	return (0);
 }
 
@@ -713,7 +734,7 @@ print_t_info(netdissect_options *ndo,
 	    ND_PRINT("blo ");
 }
 
-static void
+static int
 print_l1_routes(netdissect_options *ndo,
                 const u_char *rp, u_int len)
 {
@@ -726,7 +747,7 @@ print_l1_routes(netdissect_options *ndo,
 	    ND_TCHECK_LEN(rp, 3 * sizeof(short));
 	    count = GET_LE_U_2(rp);
 	    if (count > 1024)
-		return;	/* seems to be bogus from here on */
+		return (1);	/* seems to be bogus from here on */
 	    rp += sizeof(short);
 	    len -= sizeof(short);
 	    id = GET_LE_U_2(rp);
@@ -738,9 +759,13 @@ print_l1_routes(netdissect_options *ndo,
 	    ND_PRINT("{ids %u-%u cost %u hops %u} ", id, id + count,
 			    RI_COST(info), RI_HOPS(info));
 	}
+	return (1);
+
+trunc:
+	return (0);
 }
 
-static void
+static int
 print_l2_routes(netdissect_options *ndo,
                 const u_char *rp, u_int len)
 {
@@ -753,7 +778,7 @@ print_l2_routes(netdissect_options *ndo,
 	    ND_TCHECK_LEN(rp, 3 * sizeof(short));
 	    count = GET_LE_U_2(rp);
 	    if (count > 1024)
-		return;	/* seems to be bogus from here on */
+		return (1);	/* seems to be bogus from here on */
 	    rp += sizeof(short);
 	    len -= sizeof(short);
 	    area = GET_LE_U_2(rp);
@@ -765,6 +790,10 @@ print_l2_routes(netdissect_options *ndo,
 	    ND_PRINT("{areas %u-%u cost %u hops %u} ", area, area + count,
 			    RI_COST(info), RI_HOPS(info));
 	}
+	return (1);
+
+trunc:
+	return (0);
 }
 
 static void
@@ -786,10 +815,11 @@ print_i_info(netdissect_options *ndo,
 	    ND_PRINT("blo ");
 }
 
-static void
+static int
 print_elist(const u_char *elp _U_, u_int len _U_)
 {
 	/* Not enough examples available for me to debug this */
+	return (1);
 }
 
 static int
@@ -799,10 +829,9 @@ print_nsp(netdissect_options *ndo,
 	const struct nsphdr *nsphp = (const struct nsphdr *)nspp;
 	u_int dst, src, flags;
 
-	if (nsplen < sizeof(struct nsphdr)) {
-		ND_PRINT(" (nsplen %u < %u)", nsplen, (unsigned)sizeof(struct nsphdr));
-		goto invalid;
-	}
+	if (nsplen < sizeof(struct nsphdr))
+		goto trunc;
+	ND_TCHECK_SIZE(nsphp);
 	flags = GET_U_1(nsphp->nh_flags);
 	dst = GET_LE_U_2(nsphp->nh_dst);
 	src = GET_LE_U_2(nsphp->nh_src);
@@ -821,7 +850,7 @@ print_nsp(netdissect_options *ndo,
 		    u_int data_off = sizeof(struct minseghdr);
 
 		    if (nsplen < data_off)
-			goto invalid;
+			goto trunc;
 		    ack = GET_LE_U_2(shp->sh_seq[0]);
 		    if (ack & SGQ_ACK) {	/* acknum field */
 			if ((ack & SGQ_NAK) == SGQ_NAK)
@@ -830,7 +859,7 @@ print_nsp(netdissect_options *ndo,
 			    ND_PRINT("ack %u ", ack & SGQ_MASK);
 			data_off += sizeof(short);
 			if (nsplen < data_off)
-			    goto invalid;
+			    goto trunc;
 		        ack = GET_LE_U_2(shp->sh_seq[1]);
 			if (ack & SGQ_OACK) {	/* ackoth field */
 			    if ((ack & SGQ_ONAK) == SGQ_ONAK)
@@ -839,7 +868,7 @@ print_nsp(netdissect_options *ndo,
 				ND_PRINT("oack %u ", ack & SGQ_MASK);
 			    data_off += sizeof(short);
 			    if (nsplen < data_off)
-				goto invalid;
+				goto trunc;
 			    ack = GET_LE_U_2(shp->sh_seq[2]);
 			}
 		    }
@@ -854,7 +883,7 @@ print_nsp(netdissect_options *ndo,
 		    u_int data_off = sizeof(struct minseghdr);
 
 		    if (nsplen < data_off)
-			goto invalid;
+			goto trunc;
 		    ack = GET_LE_U_2(shp->sh_seq[0]);
 		    if (ack & SGQ_ACK) {	/* acknum field */
 			if ((ack & SGQ_NAK) == SGQ_NAK)
@@ -863,7 +892,7 @@ print_nsp(netdissect_options *ndo,
 			    ND_PRINT("ack %u ", ack & SGQ_MASK);
 			data_off += sizeof(short);
 			if (nsplen < data_off)
-			    goto invalid;
+			    goto trunc;
 		        ack = GET_LE_U_2(shp->sh_seq[1]);
 			if (ack & SGQ_OACK) {	/* ackdat field */
 			    if ((ack & SGQ_ONAK) == SGQ_ONAK)
@@ -872,7 +901,7 @@ print_nsp(netdissect_options *ndo,
 				ND_PRINT("ackdat %u ", ack & SGQ_MASK);
 			    data_off += sizeof(short);
 			    if (nsplen < data_off)
-				goto invalid;
+				goto trunc;
 			    ack = GET_LE_U_2(shp->sh_seq[2]);
 			}
 		    }
@@ -889,7 +918,7 @@ print_nsp(netdissect_options *ndo,
 		    u_int lsflags, fcval;
 
 		    if (nsplen < sizeof(struct seghdr) + sizeof(struct lsmsg))
-			goto invalid;
+			goto trunc;
 		    ack = GET_LE_U_2(shp->sh_seq[0]);
 		    if (ack & SGQ_ACK) {	/* acknum field */
 			if ((ack & SGQ_NAK) == SGQ_NAK)
@@ -906,6 +935,7 @@ print_nsp(netdissect_options *ndo,
 			}
 		    }
 		    ND_PRINT("seg %u ", ack & SGQ_MASK);
+		    ND_TCHECK_SIZE(lsmp);
 		    lsflags = GET_U_1(lsmp->ls_lsflags);
 		    fcval = GET_U_1(lsmp->ls_fcval);
 		    switch (lsflags & LSI_MASK) {
@@ -948,7 +978,7 @@ print_nsp(netdissect_options *ndo,
 		    u_int ack;
 
 		    if (nsplen < sizeof(struct ackmsg))
-			goto invalid;
+			goto trunc;
 		    ND_TCHECK_SIZE(amp);
 		    ack = GET_LE_U_2(amp->ak_acknum[0]);
 		    if (ack & SGQ_ACK) {	/* acknum field */
@@ -973,7 +1003,7 @@ print_nsp(netdissect_options *ndo,
 		    u_int ack;
 
 		    if (nsplen < sizeof(struct ackmsg))
-			goto invalid;
+			goto trunc;
 		    ND_TCHECK_SIZE(amp);
 		    ack = GET_LE_U_2(amp->ak_acknum[0]);
 		    if (ack & SGQ_ACK) {	/* acknum field */
@@ -1013,7 +1043,8 @@ print_nsp(netdissect_options *ndo,
 		    u_int services, info, segsize;
 
 		    if (nsplen < sizeof(struct cimsg))
-			goto invalid;
+			goto trunc;
+		    ND_TCHECK_SIZE(cimp);
 		    services = GET_U_1(cimp->ci_services);
 		    info = GET_U_1(cimp->ci_info);
 		    segsize = GET_LE_U_2(cimp->ci_segsize);
@@ -1053,7 +1084,8 @@ print_nsp(netdissect_options *ndo,
 		    u_int segsize, optlen;
 
 		    if (nsplen < sizeof(struct ccmsg))
-			goto invalid;
+			goto trunc;
+		    ND_TCHECK_SIZE(ccmp);
 		    services = GET_U_1(ccmp->cc_services);
 		    info = GET_U_1(ccmp->cc_info);
 		    segsize = GET_LE_U_2(ccmp->cc_segsize);
@@ -1097,7 +1129,8 @@ print_nsp(netdissect_options *ndo,
 		    u_int optlen;
 
 		    if (nsplen < sizeof(struct dimsg))
-			goto invalid;
+			goto trunc;
+		    ND_TCHECK_SIZE(dimp);
 		    reason = GET_LE_U_2(dimp->di_reason);
 		    optlen = GET_U_1(dimp->di_optlen);
 
@@ -1113,6 +1146,7 @@ print_nsp(netdissect_options *ndo,
 		    const struct dcmsg *dcmp = (const struct dcmsg *)nspp;
 		    u_int reason;
 
+		    ND_TCHECK_SIZE(dcmp);
 		    reason = GET_LE_U_2(dcmp->dc_reason);
 
 		    print_reason(ndo, reason);
@@ -1129,7 +1163,7 @@ print_nsp(netdissect_options *ndo,
 	}
 	return (1);
 
-invalid:
+trunc:
 	return (0);
 }
 
