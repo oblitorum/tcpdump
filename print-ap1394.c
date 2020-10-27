@@ -27,7 +27,6 @@
 
 #include "netdissect-stdinc.h"
 
-#define ND_LONGJMP_FROM_TCHECK
 #include "netdissect.h"
 #include "extract.h"
 #include "addrtoname.h"
@@ -96,7 +95,10 @@ ap1394_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h, const u_ch
 	struct lladdr_info src, dst;
 
 	ndo->ndo_protocol = "ap1394";
-	ND_TCHECK_LEN(p, FIREWIRE_HDRLEN);
+	if (caplen < FIREWIRE_HDRLEN) {
+		ndo->ndo_ll_hdr_len += caplen;
+		nd_trunc_longjmp(ndo);
+	}
 	ndo->ndo_ll_hdr_len += FIREWIRE_HDRLEN;
 
 	if (ndo->ndo_eflag)
