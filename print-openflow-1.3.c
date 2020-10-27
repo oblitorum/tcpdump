@@ -958,19 +958,6 @@ of13_experimenter_message_print(netdissect_options *ndo,
 	of_data_print(ndo, cp, len);
 }
 
-/* [OF13] Section A.3.6 */
-static void
-of13_queue_get_config_request_print(netdissect_options *ndo,
-                                    const u_char *cp)
-{
-	/* port */
-	ND_PRINT("\n\t port %s", tok2str(ofpp_str, "%u", GET_BE_U_4(cp)));
-	cp += 4;
-	/* pad */
-	/* Always the last field, check bounds. */
-	ND_TCHECK_4(cp);
-}
-
 /* [OF13] Section A.4.4 */
 static void
 of13_error_print(netdissect_options *ndo,
@@ -1025,7 +1012,13 @@ of13_message_print(netdissect_options *ndo,
 			goto invalid;
 		if (ndo->ndo_vflag < 1)
 			break;
-		of13_queue_get_config_request_print(ndo, cp);
+		/* port */
+		ND_PRINT("\n\t port %s",
+		         tok2str(ofpp_str, "%u", GET_BE_U_4(cp)));
+		OF_FWD(4);
+		/* pad */
+		/* Always the last field, check bounds. */
+		ND_TCHECK_4(cp);
 		return;
 	case OFPT_GET_CONFIG_REPLY: /* [OF13] Section 7.3.2 */
 	case OFPT_SET_CONFIG: /* ibid */
