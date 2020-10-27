@@ -582,7 +582,7 @@ static const struct tok ospf_topology_values[] = {
 /*
  * Print all the per-topology metrics.
  */
-static void
+static int
 ospf_print_tos_metrics(netdissect_options *ndo,
                        const union un_tos *tos)
 {
@@ -597,6 +597,7 @@ ospf_print_tos_metrics(netdissect_options *ndo,
      * All but the first metric contain a valid topology id.
      */
     while (toscount != 0) {
+        ND_TCHECK_SIZE(tos);
         tos_type = GET_U_1(tos->metrics.tos_type);
         ND_PRINT("\n\t\ttopology %s (%u), metric %u",
                tok2str(ospf_topology_values, "Unknown",
@@ -607,6 +608,9 @@ ospf_print_tos_metrics(netdissect_options *ndo,
         tos++;
         toscount--;
     }
+    return 0;
+trunc:
+    return 1;
 }
 
 /*
@@ -684,7 +688,8 @@ ospf_print_lsa(netdissect_options *ndo,
 				return (ls_end);
 			}
 
-			ospf_print_tos_metrics(ndo, &rlp->un_tos);
+			if (ospf_print_tos_metrics(ndo, &rlp->un_tos))
+				goto trunc;
 
 			rlp = (const struct rlalink *)((const u_char *)(rlp + 1) +
 			    (GET_U_1(rlp->un_tos.link.link_tos_count) * sizeof(union un_tos)));
@@ -884,7 +889,7 @@ trunc:
 	return (NULL);
 }
 
-static void
+static int
 ospf_decode_lls(netdissect_options *ndo,
                 const struct ospfhdr *op, u_int length)
 {
@@ -898,16 +903,16 @@ ospf_decode_lls(netdissect_options *ndo,
 
     case OSPF_TYPE_HELLO:
         if (!(GET_U_1(op->ospf_hello.hello_options) & OSPF_OPTION_L))
-            return;
+            return (0);
         break;
 
     case OSPF_TYPE_DD:
         if (!(GET_U_1(op->ospf_db.db_options) & OSPF_OPTION_L))
-            return;
+            return (0);
         break;
 
     default:
-        return;
+        return (0);
     }
 
     /* dig deeper if LLS data is available; see RFC4813 */
@@ -916,12 +921,12 @@ ospf_decode_lls(netdissect_options *ndo,
     dataend = (const u_char *)op + length;
 
     if (GET_BE_U_2(op->ospf_authtype) == OSPF_AUTH_MD5) {
-        dptr = dptr + GET_U_1(op->ospf_authdata + 3);
-        length2 += GET_U_1(op->ospf_authdata + 3);
+        dptr = dptr + op->ospf_authdata[3];
+        length2 += op->ospf_authdata[3];
     }
     if (length2 >= length) {
         ND_PRINT("\n\t[LLS truncated]");
-        return;
+        return (1);
     }
     ND_PRINT("\n\t  LLS: checksum: 0x%04x", (u_int) GET_BE_U_2(dptr));
 
@@ -963,6 +968,8 @@ ospf_decode_lls(netdissect_options *ndo,
 
         dptr += lls_len;
     }
+
+    return (0);
 }
 
 static int
@@ -1147,8 +1154,8 @@ ospf_print(netdissect_options *ndo,
 
 		case OSPF_AUTH_MD5:
 			ND_PRINT("\n\tKey-ID: %u, Auth-Length: %u, Crypto Sequence Number: 0x%08x",
-			          GET_U_1(op->ospf_authdata + 2),
-			          GET_U_1(op->ospf_authdata + 3),
+			          *((op->ospf_authdata) + 2),
+			          *((op->ospf_authdata) + 3),
 			          GET_BE_U_4((op->ospf_authdata) + 4));
 			break;
 
@@ -1163,8 +1170,10 @@ ospf_print(netdissect_options *ndo,
 		/* ospf version 2 */
 		if (ospf_decode_v2(ndo, op, dataend))
 			goto trunc;
-		if (length > GET_BE_U_2(op->ospf_len))
-			ospf_decode_lls(ndo, op, length);
+		if (length > GET_BE_U_2(op->ospf_len)) {
+			if (ospf_decode_lls(ndo, op, length))
+				goto trunc;
+		}
 		break;
 
 	default:
@@ -1174,5 +1183,5 @@ ospf_print(netdissect_options *ndo,
 
 	return;
 trunc:
-	nd_trunc_longjmp(ndo);
+	nd_print_trunc(ndo);
 }
