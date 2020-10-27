@@ -347,7 +347,7 @@ static void esp_print_addsa(netdissect_options *ndo,
 	nsa = (struct sa_list *)malloc(sizeof(struct sa_list));
 	if (nsa == NULL)
 		(*ndo->ndo_error)(ndo, S_ERR_ND_MEM_ALLOC,
-				  "%s: malloc", __func__);
+				  "esp_print_addsa: malloc");
 
 	*nsa = *sa;
 
@@ -603,8 +603,8 @@ static void esp_print_decode_onesecret(netdissect_options *ndo, char *line,
 		secretfile = fopen(filename, FOPEN_READ_TXT);
 		if (secretfile == NULL) {
 			(*ndo->ndo_error)(ndo, S_ERR_ND_OPEN_FILE,
-					  "%s: can't open %s: %s\n",
-					  __func__, filename, strerror(errno));
+					  "print_esp: can't open %s: %s\n",
+					  filename, strerror(errno));
 		}
 
 		while (fgets(fileline, sizeof(fileline)-1, secretfile) != NULL) {
@@ -880,7 +880,7 @@ esp_print(netdissect_options *ndo,
 	if (!nd_push_buffer(ndo, pt, pt, ep)) {
 		free(pt);
 		(*ndo->ndo_error)(ndo, S_ERR_ND_MEM_ALLOC,
-			"%s: can't push buffer on buffer stack", __func__);
+			"esp_print: can't push buffer on buffer stack");
 	}
 
 	/*
