@@ -38,7 +38,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#define ND_LONGJMP_FROM_TCHECK
 #include "netdissect.h"
 #include "addrtoname.h"
 #include "extract.h"
@@ -192,31 +191,51 @@ static const struct tok opcode[] = {
 extern const struct tok ns_type2str[];
 extern const struct tok ns_class2str[];
 
-static unsigned
+static int
 lwres_printname(netdissect_options *ndo,
                 size_t l, const u_char *p0)
 {
+	const u_char *p;
+	size_t i;
+
+	p = p0;
+	/* + 1 for terminating \0 */
+	if (p + l + 1 > ndo->ndo_snapend)
+		goto trunc;
+
 	ND_PRINT(" ");
-	(void)nd_printn(ndo, p0, l, NULL);
-	p0 += l;
-	if (GET_U_1(p0))
-		ND_PRINT(" (not NUL-terminated!)");
-	return l + 1;
+	for (i = 0; i < l; i++) {
+		fn_print_char(ndo, GET_U_1(p));
+		p++;
+	}
+	p++;	/* skip terminating \0 */
+
+	return ND_BYTES_BETWEEN(p, p0);
+
+  trunc:
+	return -1;
 }
 
-static unsigned
+static int
 lwres_printnamelen(netdissect_options *ndo,
                    const u_char *p)
 {
 	uint16_t l;
 	int advance;
 
+	if (p + 2 > ndo->ndo_snapend)
+		goto trunc;
 	l = GET_BE_U_2(p);
 	advance = lwres_printname(ndo, l, p + 2);
+	if (advance < 0)
+		goto trunc;
 	return 2 + advance;
+
+  trunc:
+	return -1;
 }
 
-static unsigned
+static int
 lwres_printbinlen(netdissect_options *ndo,
                   const u_char *p0)
 {
@@ -225,13 +244,20 @@ lwres_printbinlen(netdissect_options *ndo,
 	int i;
 
 	p = p0;
+	if (p + 2 > ndo->ndo_snapend)
+		goto trunc;
 	l = GET_BE_U_2(p);
+	if (p + 2 + l > ndo->ndo_snapend)
+		goto trunc;
 	p += 2;
 	for (i = 0; i < l; i++) {
 		ND_PRINT("%02x", GET_U_1(p));
 		p++;
 	}
-	return 2 + l;
+	return ND_BYTES_BETWEEN(p, p0);
+
+  trunc:
+	return -1;
 }
 
 static int
@@ -271,6 +297,9 @@ lwres_printaddr(netdissect_options *ndo,
 	}
 
 	return ND_BYTES_BETWEEN(p, p0);
+
+  trunc:
+	return -1;
 }
 
 void
@@ -370,6 +399,8 @@ lwres_print(netdissect_options *ndo,
 			s = p + LWRES_GABNREQUEST_LEN;
 			l = GET_BE_U_2(gabn->namelen);
 			advance = lwres_printname(ndo, l, s);
+			if (advance < 0)
+				goto trunc;
 			s += advance;
 			break;
 		case LWRES_OPCODE_GETNAMEBYADDR:
@@ -385,7 +416,7 @@ lwres_print(netdissect_options *ndo,
 			s = p + LWRES_GNBAREQUEST_LEN;
 			advance = lwres_printaddr(ndo, s);
 			if (advance < 0)
-				goto invalid;
+				goto trunc;
 			s += advance;
 			break;
 		case LWRES_OPCODE_GETRDATABYNAME:
@@ -409,6 +440,8 @@ lwres_print(netdissect_options *ndo,
 			s = p + LWRES_GRBNREQUEST_LEN;
 			l = GET_BE_U_2(grbn->namelen);
 			advance = lwres_printname(ndo, l, s);
+			if (advance < 0)
+				goto trunc;
 			s += advance;
 			break;
 		default:
@@ -451,12 +484,16 @@ lwres_print(netdissect_options *ndo,
 			s = p + LWRES_GABNRESPONSE_LEN;
 			l = GET_BE_U_2(gabn->realnamelen);
 			advance = lwres_printname(ndo, l, s);
+			if (advance < 0)
+				goto trunc;
 			s += advance;
 
 			/* aliases */
 			na = GET_BE_U_2(gabn->naliases);
 			for (i = 0; i < na; i++) {
 				advance = lwres_printnamelen(ndo, s);
+				if (advance < 0)
+					goto trunc;
 				s += advance;
 			}
 
@@ -465,7 +502,7 @@ lwres_print(netdissect_options *ndo,
 			for (i = 0; i < na; i++) {
 				advance = lwres_printaddr(ndo, s);
 				if (advance < 0)
-					goto invalid;
+					goto trunc;
 				s += advance;
 			}
 			break;
@@ -484,12 +521,16 @@ lwres_print(netdissect_options *ndo,
 			s = p + LWRES_GNBARESPONSE_LEN;
 			l = GET_BE_U_2(gnba->realnamelen);
 			advance = lwres_printname(ndo, l, s);
+			if (advance < 0)
+				goto trunc;
 			s += advance;
 
 			/* aliases */
 			na = GET_BE_U_2(gnba->naliases);
 			for (i = 0; i < na; i++) {
 				advance = lwres_printnamelen(ndo, s);
+				if (advance < 0)
+					goto trunc;
 				s += advance;
 			}
 			break;
@@ -518,6 +559,8 @@ lwres_print(netdissect_options *ndo,
 
 			s = p + LWRES_GRBNRESPONSE_LEN;
 			advance = lwres_printnamelen(ndo, s);
+			if (advance < 0)
+				goto trunc;
 			s += advance;
 
 			/* rdatas */
@@ -525,6 +568,8 @@ lwres_print(netdissect_options *ndo,
 			for (i = 0; i < na; i++) {
 				/* XXX should decode resource data */
 				advance = lwres_printbinlen(ndo, s);
+				if (advance < 0)
+					goto trunc;
 				s += advance;
 			}
 
@@ -533,6 +578,8 @@ lwres_print(netdissect_options *ndo,
 			for (i = 0; i < na; i++) {
 				/* XXX how should we print it? */
 				advance = lwres_printbinlen(ndo, s);
+				if (advance < 0)
+					goto trunc;
 				s += advance;
 			}
 			break;
@@ -553,6 +600,6 @@ lwres_print(netdissect_options *ndo,
 		ND_PRINT("[extra]");
 	return;
 
-  invalid:
-	nd_print_invalid(ndo);
+  trunc:
+	nd_print_trunc(ndo);
 }
