@@ -25,6 +25,8 @@
 
 #include "netdissect-stdinc.h"
 
+#include <string.h>
+
 #define ND_LONGJMP_FROM_TCHECK
 #include "netdissect.h"
 #include "extract.h"

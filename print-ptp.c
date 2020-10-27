@@ -24,6 +24,7 @@
 #include "netdissect-stdinc.h"
 #include "netdissect.h"
 #include "extract.h"
+#include <string.h>
 
 /*
  * PTP header

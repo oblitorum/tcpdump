@@ -50,6 +50,7 @@
 #include "netdissect-stdinc.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #include "netdissect.h"
 #include "addrtoname.h"
