@@ -35,7 +35,6 @@
 #include "netdissect-ctype.h"
 
 #include "netdissect.h"
-#include "extract.h"
 
 struct z_packet {
     const char *version;
@@ -86,7 +85,7 @@ static const struct tok z_types[] = {
 static char z_buf[256];
 
 static const char *
-parse_field(netdissect_options *ndo, const char **pptr, int *len)
+parse_field(netdissect_options *ndo, const char **pptr, int *len, int *truncated)
 {
     const char *s;
 
@@ -98,7 +97,12 @@ parse_field(netdissect_options *ndo, const char **pptr, int *len)
 	    /* Ran out of packet data without finding it */
 	    return NULL;
 	}
-	if (GET_U_1(*pptr) == '\0') {
+	if (!ND_TTEST_SIZE(*pptr)) {
+	    /* Ran out of captured data without finding it */
+	    *truncated = 1;
+	    return NULL;
+	}
+	if (**pptr == '\0') {
 	    /* Found it */
 	    break;
 	}
@@ -165,12 +169,14 @@ zephyr_print(netdissect_options *ndo, const u_char *cp, int length)
     int parselen = length;
     const char *s;
     int lose = 0;
+    int truncated = 0;
 
     ndo->ndo_protocol = "zephyr";
     /* squelch compiler warnings */
 
 #define PARSE_STRING						\
-	s = parse_field(ndo, &parse, &parselen);	\
+	s = parse_field(ndo, &parse, &parselen, &truncated);	\
+	if (truncated) goto trunc;				\
 	if (!s) lose = 1;
 
 #define PARSE_FIELD_INT(field)			\
@@ -182,9 +188,7 @@ zephyr_print(netdissect_options *ndo, const u_char *cp, int length)
 	if (!lose) field = s;
 
     PARSE_FIELD_STR(z.version);
-    if (lose)
-        goto invalid;
-
+    if (lose) return;
     if (strncmp(z.version, "ZEPH", 4))
 	return;
 
@@ -206,7 +210,7 @@ zephyr_print(netdissect_options *ndo, const u_char *cp, int length)
     PARSE_FIELD_STR(z.multi_uid);
 
     if (lose)
-        goto invalid;
+        goto trunc;
 
     ND_PRINT(" zephyr");
     if (strncmp(z.version+4, "0.2", 3)) {
@@ -340,6 +344,6 @@ zephyr_print(netdissect_options *ndo, const u_char *cp, int length)
 	ND_PRINT(" op %s", z.opcode);
     return;
 
-invalid:
-    nd_print_invalid(ndo);
+trunc:
+    nd_print_trunc(ndo);
 }
