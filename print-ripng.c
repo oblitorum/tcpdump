@@ -21,8 +21,6 @@
 
 /* \summary: IPv6 Routing Information Protocol (RIPng) printer */
 
-/* specification: RFC 2080 */
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -77,7 +75,12 @@ struct	rip6 {
 	nd_uint8_t	rip6_cmd;
 	nd_uint8_t	rip6_vers;
 	nd_byte		rip6_res1[2];
-	struct netinfo6	rip6_nets[1];
+	union {
+		struct	netinfo6	ru6_nets[1];
+		nd_byte	ru6_tracefile[1];
+	} rip6un;
+#define	rip6_nets	rip6un.ru6_nets
+#define	rip6_tracefile	rip6un.ru6_tracefile
 };
 
 #define	HOPCNT_INFINITY6	16
@@ -88,48 +91,43 @@ static int ND_IN6_IS_ADDR_UNSPECIFIED(const nd_ipv6 *addr)
     return (memcmp(addr, &in6addr_any_val, sizeof(*addr)) == 0);
 }
 
-static void
-rip6_entry_print(netdissect_options *ndo,
-                 const struct netinfo6 *ni, const u_int print_metric)
+static int
+rip6_entry_print(netdissect_options *ndo, const struct netinfo6 *ni, u_int metric)
 {
+	int l;
 	uint16_t tag;
-	uint8_t metric;
 
-	ND_PRINT("%s/%u", GET_IP6ADDR_STRING(ni->rip6_dest),
-	         GET_U_1(ni->rip6_plen));
+	l = ND_PRINT("%s/%u", GET_IP6ADDR_STRING(ni->rip6_dest),
+		     GET_U_1(ni->rip6_plen));
 	tag = GET_BE_U_2(ni->rip6_tag);
 	if (tag)
-		ND_PRINT(" [%u]", tag);
-	metric = GET_U_1(ni->rip6_metric);
-	if (metric && print_metric)
-		ND_PRINT(" (%u)", metric);
+		l += ND_PRINT(" [%u]", tag);
+	if (metric)
+		l += ND_PRINT(" (%u)", metric);
+	return l;
 }
 
 void
 ripng_print(netdissect_options *ndo, const u_char *dat, unsigned int length)
 {
 	const struct rip6 *rp = (const struct rip6 *)dat;
-	uint8_t cmd, vers;
+	uint8_t cmd;
 	const struct netinfo6 *ni;
 	unsigned int length_left;
 	u_int j;
 
 	ndo->ndo_protocol = "ripng";
-	vers = GET_U_1(rp->rip6_vers);
-	if (vers != RIP6_VERSION) {
-		ND_PRINT(" [vers %u]", vers);
-		goto invalid;
-	}
 	cmd = GET_U_1(rp->rip6_cmd);
 	switch (cmd) {
 
 	case RIP6_REQUEST:
 		length_left = length;
 		if (length_left < (sizeof(struct rip6) - sizeof(struct netinfo6)))
-			goto invalid;
+			goto trunc;
 		length_left -= (sizeof(struct rip6) - sizeof(struct netinfo6));
  		j = length_left / sizeof(*ni);
 		if (j == 1) {
+			ND_TCHECK_SIZE(rp->rip6_nets);
 			if (GET_U_1(rp->rip6_nets->rip6_metric) == HOPCNT_INFINITY6
 			    && ND_IN6_IS_ADDR_UNSPECIFIED(&rp->rip6_nets->rip6_dest)) {
 				ND_PRINT(" ripng-req dump");
@@ -142,19 +140,20 @@ ripng_print(netdissect_options *ndo, const u_char *dat, unsigned int length)
 			ND_PRINT(" ripng-req %u:", j);
 		for (ni = rp->rip6_nets; length_left >= sizeof(*ni);
 		    length_left -= sizeof(*ni), ++ni) {
+			ND_TCHECK_SIZE(ni);
 			if (ndo->ndo_vflag > 1)
 				ND_PRINT("\n\t");
 			else
 				ND_PRINT(" ");
-			rip6_entry_print(ndo, ni, FALSE);
+			rip6_entry_print(ndo, ni, 0);
 		}
 		if (length_left != 0)
-			goto invalid;
+			goto trunc;
 		break;
 	case RIP6_RESPONSE:
 		length_left = length;
 		if (length_left < (sizeof(struct rip6) - sizeof(struct netinfo6)))
-			goto invalid;
+			goto trunc;
 		length_left -= (sizeof(struct rip6) - sizeof(struct netinfo6));
 		j = length_left / sizeof(*ni);
 		if (j * sizeof(*ni) != length_left)
@@ -163,21 +162,24 @@ ripng_print(netdissect_options *ndo, const u_char *dat, unsigned int length)
 			ND_PRINT(" ripng-resp %u:", j);
 		for (ni = rp->rip6_nets; length_left >= sizeof(*ni);
 		    length_left -= sizeof(*ni), ++ni) {
+			ND_TCHECK_SIZE(ni);
 			if (ndo->ndo_vflag > 1)
 				ND_PRINT("\n\t");
 			else
 				ND_PRINT(" ");
-			rip6_entry_print(ndo, ni, TRUE);
+			rip6_entry_print(ndo, ni, GET_U_1(ni->rip6_metric));
 		}
 		if (length_left != 0)
-			goto invalid;
+			goto trunc;
 		break;
 	default:
 		ND_PRINT(" ripng-%u ?? %u", cmd, length);
-		goto invalid;
+		break;
 	}
+	if (GET_U_1(rp->rip6_vers) != RIP6_VERSION)
+		ND_PRINT(" [vers %u]", GET_U_1(rp->rip6_vers));
 	return;
 
-invalid:
-	nd_print_invalid(ndo);
+trunc:
+	nd_print_trunc(ndo);
 }
