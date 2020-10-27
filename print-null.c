@@ -29,7 +29,6 @@
 
 #include <string.h>
 
-#define ND_LONGJMP_FROM_TCHECK
 #include "netdissect.h"
 #include "extract.h"
 #include "af.h"
@@ -83,7 +82,11 @@ null_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h, const u_char
 	uint32_t family;
 
 	ndo->ndo_protocol = "null";
-	ND_TCHECK_LEN(p, NULL_HDRLEN);
+	if (caplen < NULL_HDRLEN) {
+		ndo->ndo_ll_hdr_len += caplen;
+		nd_print_trunc(ndo);
+		return;
+	}
 	ndo->ndo_ll_hdr_len += NULL_HDRLEN;
 
 	family = GET_HE_U_4(p);
