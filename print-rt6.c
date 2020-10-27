@@ -65,10 +65,8 @@ rt6_print(netdissect_options *ndo, const u_char *bp, const u_char *bp2 _U_)
 			    GET_BE_U_4(dp0->ip6r0_reserved));
 		}
 
-		if (len % 2 == 1) {
-			ND_PRINT(" (invalid length %u)", len);
-			goto invalid;
-		}
+		if (len % 2 == 1)
+			goto trunc;
 		len >>= 1;
 		p = (const u_char *) dp0->ip6r0_addr;
 		for (i = 0; i < len; i++) {
@@ -90,10 +88,8 @@ rt6_print(netdissect_options *ndo, const u_char *bp, const u_char *bp2 _U_)
 
 		ND_PRINT(", tag=%x", GET_BE_U_2(srh->srh_tag));
 
-		if (len % 2 == 1) {
-			ND_PRINT(" (invalid length %u)", len);
-			goto invalid;
-		}
+		if (len % 2 == 1)
+			goto trunc;
 		len >>= 1;
 		p  = (const u_char *) srh->srh_segments;
 		for (i = 0; i < len; i++) {
@@ -105,11 +101,11 @@ rt6_print(netdissect_options *ndo, const u_char *bp, const u_char *bp2 _U_)
 		return((GET_U_1(srh->srh_len) + 1) << 3);
 		break;
 	default:
-		ND_PRINT(" (unknown type)");
-		goto invalid;
+		goto trunc;
+		break;
 	}
 
-invalid:
-	nd_print_invalid(ndo);
+ trunc:
+	nd_print_trunc(ndo);
 	return -1;
 }
