@@ -258,4 +258,5 @@ krb_print(netdissect_options *ndo,
 		/* Decode ASN.1 here "someday" */
 		break;
 	}
+	return;
 }

@@ -1086,4 +1086,5 @@ tooshort:
     return;
 trunc:
     nd_print_trunc(ndo);
+    return;
 }

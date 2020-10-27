@@ -91,6 +91,8 @@ sl_if_print(netdissect_options *ndo,
 	default:
 		ND_PRINT("ip v%u", IP_V(ip));
 	}
+
+	return;
 }
 
 void
@@ -119,6 +121,8 @@ sl_bsdos_if_print(netdissect_options *ndo,
 #endif
 
 	ip_print(ndo, (const u_char *)ip, length);
+
+	return;
 }
 
 static int

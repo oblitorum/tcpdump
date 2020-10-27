@@ -105,6 +105,7 @@ gre_print(netdissect_options *ndo, const u_char *bp, u_int length)
 
 trunc:
 	nd_print_trunc(ndo);
+	return;
 }
 
 static void

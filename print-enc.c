@@ -160,4 +160,6 @@ enc_if_print(netdissect_options *ndo,
 		ip6_print(ndo, p, length);
 		break;
 	}
+
+	return;
 }

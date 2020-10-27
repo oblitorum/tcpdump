@@ -1314,6 +1314,8 @@ print_attr_vector64(netdissect_options *ndo,
    }
 
    ND_PRINT("]");
+
+   return;
 }
 
 /***********************************/

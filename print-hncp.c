@@ -864,4 +864,5 @@ hncp_print_rec(netdissect_options *ndo,
 
  invalid:
     nd_print_invalid(ndo);
+    return;
 }

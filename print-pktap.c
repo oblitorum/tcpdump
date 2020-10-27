@@ -167,5 +167,6 @@ pktap_if_print(netdissect_options *ndo,
 	}
 
 	ndo->ndo_ll_hdr_len += hdrlen;
+	return;
 }
 #endif /* DLT_PKTAP */

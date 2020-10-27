@@ -66,4 +66,5 @@ ipcomp_print(netdissect_options *ndo, const u_char *bp)
 
 trunc:
 	nd_print_trunc(ndo);
+	return;
 }
