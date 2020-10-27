@@ -1350,17 +1350,17 @@ lldp_network_addr_print(netdissect_options *ndo, const u_char *tptr, u_int len)
     af = GET_U_1(tptr);
     switch (af) {
     case AFNUM_INET:
-        if (len < sizeof(nd_ipv4))
+        if (len < 4)
           return NULL;
         pfunc = ipaddr_string;
         break;
     case AFNUM_INET6:
-        if (len < sizeof(nd_ipv6))
+        if (len < 16)
           return NULL;
         pfunc = ip6addr_string;
         break;
     case AFNUM_802:
-        if (len < MAC_ADDR_LEN)
+        if (len < 6)
           return NULL;
         pfunc = etheraddr_string;
         break;
